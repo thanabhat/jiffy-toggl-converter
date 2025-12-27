@@ -4,6 +4,7 @@ Convert Jiffy time tracker JSON export to Toggl Track CSV format
 """
 
 import json
+import csv
 import argparse
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -41,6 +42,42 @@ def parse_jiffy_timestamp(timestamp_ms, tz_name='Asia/Bangkok'):
         return dt_utc.replace(tzinfo=None)
 
 
+def convert_to_output_timezone(timestamp_ms, input_tz_name, output_tz_name='Asia/Bangkok'):
+    """Convert Jiffy timestamp to a specific output timezone
+    
+    Args:
+        timestamp_ms: Jiffy timestamp in milliseconds
+        input_tz_name: Original timezone of the entry
+        output_tz_name: Target timezone for conversion
+    
+    Returns:
+        datetime object in the output timezone (timezone-naive)
+    """
+    # First convert to UTC
+    dt_utc = datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc)
+    
+    # Then convert to output timezone
+    if output_tz_name.startswith('GMT'):
+        # Handle GMT offset format
+        offset_str = output_tz_name[3:]
+        if offset_str:
+            sign = 1 if offset_str[0] == '+' else -1
+            parts = offset_str[1:].split(':')
+            hours = int(parts[0])
+            minutes = int(parts[1]) if len(parts) > 1 else 0
+            offset = timedelta(hours=sign * hours, minutes=sign * minutes)
+            dt_output = dt_utc + offset
+            return dt_output.replace(tzinfo=None)
+    
+    # Use ZoneInfo for IANA timezone names
+    try:
+        dt_output = dt_utc.astimezone(ZoneInfo(output_tz_name))
+        return dt_output.replace(tzinfo=None)
+    except Exception:
+        # Fallback to UTC if timezone is not recognized
+        return dt_utc.replace(tzinfo=None)
+
+
 def format_duration(start_ms, stop_ms):
     """Calculate and format duration in HH:MM:SS format"""
     duration_seconds = (stop_ms - start_ms) / 1000
@@ -62,6 +99,80 @@ def load_jiffy_data(json_file):
     """Load and parse Jiffy JSON file"""
     with open(json_file, 'r') as f:
         return json.load(f)
+
+
+def convert_to_toggl(data, output_file, email, from_date=None, to_date=None, output_timezone='Asia/Bangkok'):
+    """Convert Jiffy data to Toggl Track CSV format
+    
+    Args:
+        data: Jiffy data dictionary
+        output_file: Output CSV file path
+        email: Email address for the CSV
+        from_date: Optional start date string in format 'YYYY-MM-DD'
+        to_date: Optional end date string in format 'YYYY-MM-DD'
+        output_timezone: Timezone for output timestamps (default: 'Asia/Bangkok')
+    """
+    time_entries = data.get('time_entries', [])
+    time_owners = data.get('time_owners', [])
+    
+    # Filter active entries
+    active_entries = [e for e in time_entries if e.get('status') == 'ACTIVE']
+    
+    # Filter by date range if specified
+    if from_date or to_date:
+        start_date = datetime.strptime(from_date, '%Y-%m-%d').date() if from_date else None
+        end_date = datetime.strptime(to_date, '%Y-%m-%d').date() if to_date else None
+        
+        filtered_entries = []
+        for entry in active_entries:
+            entry_dt = parse_jiffy_timestamp(entry['start_time'], entry['start_time_zone'])
+            entry_date = entry_dt.date()
+            
+            if start_date and entry_date < start_date:
+                continue
+            if end_date and entry_date > end_date:
+                continue
+            filtered_entries.append(entry)
+        
+        active_entries = filtered_entries
+    
+    # Sort entries by start time
+    active_entries.sort(key=lambda e: e['start_time'])
+    
+    # Write to CSV
+    with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
+        fieldnames = ['Description', 'Billable', 'Duration', 'Email', 'Project', 
+                      'Start date', 'Start time']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames, quoting=csv.QUOTE_ALL)
+        
+        writer.writeheader()
+        
+        for entry in active_entries:
+            start_dt = convert_to_output_timezone(entry['start_time'], entry['start_time_zone'], output_timezone)
+            stop_dt = convert_to_output_timezone(entry['stop_time'], entry['stop_time_zone'], output_timezone)
+            duration = format_duration(entry['start_time'], entry['stop_time'])
+            project = get_owner_name(entry['owner_id'], time_owners)
+            description = entry.get('note', '-')
+            
+            row = {
+                'Description': description or '',
+                'Billable': 'No',
+                'Duration': duration,
+                'Email': email,
+                'Project': project,
+                'Start date': start_dt.strftime('%Y-%m-%d'),
+                'Start time': start_dt.strftime('%H:%M:%S')
+            }
+            
+            writer.writerow(row)
+    
+    print(f"\nConverted {len(active_entries)} entries to {output_file}")
+    if from_date or to_date:
+        date_range = f" from {from_date or 'beginning'}" if from_date else ""
+        date_range += f" to {to_date or 'now'}" if to_date else ""
+        print(f"Date range:{date_range}")
+    print(f"Email: {email}")
+    print(f"Output timezone: {output_timezone}")
 
 
 def print_examples(data, num_examples=5, from_date=None, to_date=None):
@@ -180,12 +291,24 @@ def main():
     )
     parser.add_argument(
         '-m', '--mode',
-        choices=['print-only'],
-        help='Operation mode: print-only (display data without conversion)'
+        choices=['convert', 'print-only'],
+        default='convert',
+        help='Operation mode: convert (default, convert to Toggl CSV) or print-only (display data without conversion)'
     )
     parser.add_argument(
         '-o', '--output',
-        help='Output CSV file (default: auto-generated based on input filename)'
+        default='data/toggl_output.csv',
+        help='Output CSV file (default: data/toggl_output.csv)'
+    )
+    parser.add_argument(
+        '--email',
+        required=False,
+        help='Email address for Toggl CSV (required for convert mode)'
+    )
+    parser.add_argument(
+        '--output-timezone',
+        default='Asia/Bangkok',
+        help='Timezone for output CSV timestamps (default: Asia/Bangkok)'
     )
     parser.add_argument(
         '-n', '--num-examples',
@@ -221,8 +344,19 @@ def main():
         print(f"{'='*80}\n")
         return 0
     
-    # Default mode (to be implemented)
-    print("Default conversion mode - to be implemented")
+    # Handle convert mode (default)
+    if args.mode == 'convert':
+        # Check required parameters for convert mode
+        if not args.email:
+            print("Error: --email is required for convert mode")
+            print("Example: python3 convert_jiffy_toggl.py --email 'your@email.com'")
+            return 1
+        
+        convert_to_toggl(data, args.output, args.email, args.from_date, args.to_date, args.output_timezone)
+        print(f"\n{'='*80}")
+        print("Conversion completed successfully!")
+        print(f"{'='*80}\n")
+        return 0
     
     return 0
 
