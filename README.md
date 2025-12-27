@@ -6,19 +6,19 @@ Convert Jiffy time tracker JSON to Toggl Track or Clockify CSV format.
 
 ```bash
 # View entries (default: last 5)
-python3 convert_jiffy_toggl.py
+python3 jiffy_export.py
 
 # Convert to Toggl Track CSV
-python3 convert_jiffy_toggl.py --email your@email.com
+python3 jiffy_export.py --email your@email.com
 
 # Convert to Clockify CSV
-python3 convert_jiffy_toggl.py -m clockify --email your@email.com
+python3 jiffy_export.py -m clockify --email your@email.com
 ```
 
 ## Usage
 
 ```bash
-python3 convert_jiffy_toggl.py [input_file] [options]
+python3 jiffy_export.py [input_file] [options]
 
 Options:
   -m, --mode          Mode: toggl (default), clockify, or print-only
