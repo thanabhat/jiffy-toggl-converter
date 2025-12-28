@@ -1,43 +1,45 @@
-# Jiffy Time Tracker Exporter
+# Time Tracker Exporters
 
-Convert Jiffy time tracker JSON to Toggl Track or Clockify CSV format.
+Convert time tracking data between formats: Jiffy → Toggl/Clockify, Toggl → Clockify.
 
-## Quick Start
+## Jiffy Exporter to Toggl / Clockify
 
+Convert Jiffy JSON to Toggl Track or Clockify CSV.
+
+**Setup:**
+1. Export Jiffy data (Settings → Export) to `data/jiffy_input.json`
+2. Run script with desired mode
+
+**Quick Start:**
 ```bash
-# View entries (default: last 5)
-python3 jiffy_export.py
+# View entries
+python jiffy_export.py
 
-# Convert to Toggl Track CSV
-python3 jiffy_export.py --email your@email.com
+# Convert to Toggl Track
+python jiffy_export.py -m toggl --email your@email.com -f 2025-01-01 -t 2025-12-31 --output-timezone Asia/Bangkok
 
-# Convert to Clockify CSV
-python3 jiffy_export.py -m clockify --email your@email.com
+# Convert to Clockify
+python jiffy_export.py -m clockify --email your@email.com -f 2025-01-01 -t 2025-12-31 --output-timezone Asia/Bangkok
 ```
 
-## Usage
+**Options:** `-m` mode, `-o` output, `--email`, `-n` num entries, `-f`/`-t` date range, `--output-timezone`
 
+## Toggl Exporter to Clockify
+
+Convert Toggl Track CSV to Clockify CSV with client mapping.
+
+**Setup:**
+1. Export Toggl data to `data/toggl_input.csv`
+2. (Optional) Export Toggl projects to `data/toggl_projects.json` for client mapping
+3. Run script
+
+**Quick Start:**
 ```bash
-python3 jiffy_export.py [input_file] [options]
+# View entries
+python toggl_export.py
 
-Options:
-  -m, --mode          Mode: toggl (default), clockify, or print-only
-  -o, --output        Output CSV file path
-  --email             Email address (required for toggl/clockify)
-  -n NUM              Number of entries to display (default: 5)
-  -f, --from-date     Filter from date (YYYY-MM-DD)
-  -t, --to-date       Filter to date (YYYY-MM-DD)
-  --output-timezone   Output timezone (default: Asia/Bangkok)
+# Convert to Clockify
+python toggl_export.py -m clockify -f 2025-01-01 -t 2025-12-31
 ```
 
-## Setup
-
-1. Export Jiffy data to JSON (Jiffy app: Settings → Export)
-2. Place file at `data/jiffy_input.json`
-3. Run the script
-
-## Notes
-
-- Converts UTC milliseconds to local time
-- Filters only ACTIVE entries
-- Supports timezone conversion
+**Options:** `-m` mode, `-o` output, `-p` projects file, `-n` num entries, `-f`/`-t` date range

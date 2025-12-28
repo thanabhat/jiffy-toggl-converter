@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Convert Jiffy time tracker JSON export to Toggl Track CSV format
 """
@@ -391,7 +391,7 @@ def main():
     parser.add_argument(
         '-m', '--mode',
         choices=['toggl', 'clockify', 'print-only'],
-        default='toggl',
+        default='print-only',
         help='Operation mode: toggl (default, convert to Toggl CSV), clockify (convert to Clockify CSV), or print-only (display data without conversion)'
     )
     parser.add_argument(
@@ -448,7 +448,7 @@ def main():
         # Check required parameters for toggl mode
         if not args.email:
             print("Error: --email is required for toggl mode")
-            print("Example: python3 convert_jiffy_toggl.py --email 'your@email.com'")
+            print("Example: python convert_jiffy_toggl.py --email 'your@email.com'")
             return 1
         
         # Set default output file if not specified
@@ -465,7 +465,7 @@ def main():
         # Check required parameters for clockify mode
         if not args.email:
             print("Error: --email is required for clockify mode")
-            print("Example: python3 convert_jiffy_toggl.py -m clockify --email 'your@email.com'")
+            print("Example: python convert_jiffy_toggl.py -m clockify --email 'your@email.com'")
             return 1
         
         # Set default output file if not specified

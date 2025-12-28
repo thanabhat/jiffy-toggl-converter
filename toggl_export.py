@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Convert Toggl Track CSV export to Clockify CSV format
 """
@@ -232,7 +232,7 @@ def main():
     parser.add_argument(
         '-m', '--mode',
         choices=['clockify', 'print-only'],
-        default='clockify',
+        default='print-only',
         help='Operation mode: clockify (default, convert to Clockify CSV) or print-only (display data without conversion)'
     )
     parser.add_argument(
